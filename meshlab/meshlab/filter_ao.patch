@@ -1,0 +1,96 @@
+Index: meshlabplugins/filter_ao/filter_ao.cpp
+===================================================================
+--- meshlabplugins/filter_ao/filter_ao.cpp	(revision 6135)
++++ meshlabplugins/filter_ao/filter_ao.cpp	(working copy)
+@@ -23,6 +23,9 @@
+ 
+ #include <GL/glew.h>
+ #include "filter_ao.h"
++
++#include <QtOpenGL/QGLFormat>
++#include <QtOpenGL/QGLPixelBuffer>
+ #include <QGLFramebufferObject>
+ #include <vcg/math/gen_normal.h>
+ 
+@@ -55,7 +58,7 @@
+ 	numViews = AMBOCC_DEFAULT_NUM_VIEWS;
+ 	depthTexSize = AMBOCC_DEFAULT_TEXTURE_SIZE;
+ 	depthTexArea = depthTexSize*depthTexSize;
+-	maxTexSize = 16;
++	maxTexSize = 4096;
+ 
+ 	colorFormat = GL_RGBA32F_ARB;
+ 	dataTypeFP = GL_FLOAT;
+@@ -157,9 +160,22 @@
+ 	numViews = viewDirVec.size();
+ 
+ 
+-	this->glContext->makeCurrent();
++	unsigned int widgetSize = std::min(maxTexSize, depthTexSize);
++	QGLPixelBuffer* glPixBuf = 0;
++	if (!this->glContext)
++	  {
++	    printf("\n Construct an OpenGL pixel buffer.");
++	    glPixBuf = new QGLPixelBuffer (widgetSize, widgetSize);  
++	    glPixBuf->makeCurrent();
++	  }     
++	else
++	  {
++	    this->glContext->makeCurrent();
++	  }
++
++
+ 	this->initGL(cb,m.cm.vn);
+-	unsigned int widgetSize = std::min(maxTexSize, depthTexSize);
++
+ 	QSize fbosize(widgetSize,widgetSize);
+ 	QGLFramebufferObjectFormat frmt;
+ 	frmt.setInternalTextureFormat(GL_RGBA);
+@@ -173,7 +189,16 @@
+ 	err = glGetError();
+ 	const GLubyte* errname = gluErrorString(err);
+ 	qDebug("End Painting");
+-	this->glContext->doneCurrent();
++
++	if (glPixBuf)
++	  {
++	    glPixBuf->doneCurrent();
++	    delete glPixBuf;
++	  }
++	else
++	  {
++	    this->glContext->doneCurrent();
++	  }
+ 	return !errInit;
+ }
+ 	
+Index: common/interfaces.h
+===================================================================
+--- common/interfaces.h	(revision 6135)
++++ common/interfaces.h	(working copy)
+@@ -246,7 +246,7 @@
+ 	
+ 	
+ 	
+-	MeshFilterInterface() : MeshCommonInterface() 
++ MeshFilterInterface() : MeshCommonInterface(), glContext(0)
+ 	{
+ 	}
+ 	virtual ~MeshFilterInterface() {}
+Index: shared.pri
+===================================================================
+--- shared.pri	(revision 6135)
++++ shared.pri	(working copy)
+@@ -17,9 +17,9 @@
+ win32-msvc2008:  LIBS += ../../distrib/common.lib
+ win32-msvc2010:  LIBS += ../../distrib/common.lib
+ win32-g++:LIBS += -L../../distrib -lcommon
+-linux-g++:LIBS += -L../../distrib -lcommon
+-linux-g++-32:LIBS += -L../../distrib -lcommon
+-linux-g++-64:LIBS += -L../../distrib -lcommon
++linux-g++:LIBS += -L../../distrib -lcommon -lGLU
++linux-g++-32:LIBS += -L../../distrib -lcommon -lGLU
++linux-g++-64:LIBS += -L../../distrib -lcommon -lGLU
+ 
+ #CONFIG(debug, debug|release) {
+ #	win32-msvc2005:  LIBS += ../../common/debug/common.lib
